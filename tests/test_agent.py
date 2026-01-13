@@ -1,3 +1,4 @@
+import json
 from typing import Any
 import pytest
 import httpx
@@ -196,4 +197,120 @@ async def test_message(agent, streaming):
     assert events, "Agent should respond with at least one event"
     assert not all_errors, f"Message validation failed:\n" + "\n".join(all_errors)
 
-# Add your custom tests here
+
+# Custom CyberGym green agent tests
+
+@pytest.mark.asyncio
+async def test_cybergym_evaluation_request(agent):
+    """Test that the green agent can handle a CyberGym evaluation request."""
+    eval_request = {
+        "participants": {
+            "red": "http://mock-red-agent:9001",
+            "blue": "http://mock-blue-agent:9002"
+        },
+        "config": {
+            "vulnerability_id": "CVE-2023-TEST",
+            "task_description": "Test vulnerability for buffer overflow",
+            "timeout": 60
+        }
+    }
+    
+    request_json = json.dumps(eval_request)
+    events = await send_text_message(request_json, agent, streaming=False)
+    
+    # Should receive at least one event
+    assert events, "Agent should respond to evaluation request"
+    
+    # Check that we got a task response
+    has_task = False
+    for event in events:
+        match event:
+            case (task, update):
+                has_task = True
+                # Task should have a valid state
+                assert task.status.state.value in ["working", "completed", "rejected", "failed"]
+            case _:
+                pass
+    
+    assert has_task, "Agent should return a task for evaluation request"
+
+
+@pytest.mark.asyncio
+async def test_invalid_request_missing_roles(agent):
+    """Test that the green agent rejects requests with missing roles."""
+    eval_request = {
+        "participants": {
+            "red": "http://mock-red-agent:9001"
+            # Missing blue agent
+        },
+        "config": {
+            "vulnerability_id": "CVE-2023-TEST",
+            "task_description": "Test vulnerability",
+            "timeout": 60
+        }
+    }
+    
+    request_json = json.dumps(eval_request)
+    events = await send_text_message(request_json, agent, streaming=False)
+    
+    # Should receive rejection
+    rejected = False
+    for event in events:
+        match event:
+            case (task, update):
+                if task.status.state.value == "rejected":
+                    rejected = True
+            case _:
+                pass
+    
+    assert rejected, "Agent should reject request with missing roles"
+
+
+@pytest.mark.asyncio
+async def test_invalid_request_missing_config(agent):
+    """Test that the green agent rejects requests with missing config."""
+    eval_request = {
+        "participants": {
+            "red": "http://mock-red-agent:9001",
+            "blue": "http://mock-blue-agent:9002"
+        },
+        "config": {
+            "vulnerability_id": "CVE-2023-TEST"
+            # Missing task_description and timeout
+        }
+    }
+    
+    request_json = json.dumps(eval_request)
+    events = await send_text_message(request_json, agent, streaming=False)
+    
+    # Should receive rejection
+    rejected = False
+    for event in events:
+        match event:
+            case (task, update):
+                if task.status.state.value == "rejected":
+                    rejected = True
+            case _:
+                pass
+    
+    assert rejected, "Agent should reject request with missing config keys"
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_request(agent):
+    """Test that the green agent handles malformed JSON gracefully."""
+    malformed_request = "{ this is not valid json }"
+    
+    events = await send_text_message(malformed_request, agent, streaming=False)
+    
+    # Should receive rejection or failure
+    handled = False
+    for event in events:
+        match event:
+            case (task, update):
+                if task.status.state.value in ["rejected", "failed"]:
+                    handled = True
+            case _:
+                pass
+    
+    assert handled, "Agent should handle malformed JSON gracefully"

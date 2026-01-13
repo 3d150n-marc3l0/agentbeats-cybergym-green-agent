@@ -20,20 +20,21 @@ def main():
     parser.add_argument("--card-url", type=str, help="URL to advertise in the agent card")
     args = parser.parse_args()
 
-    # Fill in your agent card
-    # See: https://a2a-protocol.org/latest/tutorials/python/3-agent-skills-and-card/
-    
     skill = AgentSkill(
-        id="",
-        name="",
-        description="",
-        tags=[],
-        examples=[]
+        id="cybergym-evaluation",
+        name="CyberGym Benchmark Evaluation",
+        description="Orchestrates and evaluates cybersecurity agents on CyberGym benchmark tasks, including PoC generation and vulnerability reproduction.",
+        tags=["cybersecurity", "evaluation", "cybergym", "poc", "vulnerability"],
+        examples=[
+            "Evaluate red and blue agents on CVE-2023-1234",
+            "Score agents based on PoC success and crash detection",
+            "Orchestrate CyberGym vulnerability reproduction task"
+        ]
     )
 
     agent_card = AgentCard(
-        name="",
-        description="",
+        name="CyberGym Green Agent",
+        description="Green agent for the AgentX-AgentBeats competition. Orchestrates battles between red and blue agents on CyberGym cybersecurity benchmark tasks, evaluates their performance based on PoC success, crash detection, steps efficiency, and assigns scores.",
         url=args.card_url or f"http://{args.host}:{args.port}/",
         version='1.0.0',
         default_input_modes=['text'],
